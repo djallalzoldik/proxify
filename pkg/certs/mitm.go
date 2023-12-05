@@ -1,11 +1,8 @@
 package certs
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,8 +19,8 @@ var (
 )
 
 const (
-	caKeyName     = "cakey.pem"
-	caCertName    = "cacert.pem"
+	caKeyName     = "cakey.der"
+	caCertName    = "cacert.der"
 	bits          = 2048
 	organization  = "Proxify CA"
 	country       = "US"
@@ -43,24 +40,14 @@ func GetMitMConfig() *mitm.Config {
 }
 
 func SaveCAToFile(filename string) error {
-	buffer := &bytes.Buffer{}
-	err := pem.Encode(buffer, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filename, buffer.Bytes(), 0600)
+	return os.WriteFile(filename, cert.Raw, 0600)
 }
 
 func SaveKeyToFile(filename string) error {
-	buffer := &bytes.Buffer{}
-	err := pem.Encode(buffer, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pkey)})
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filename, buffer.Bytes(), 0600)
+	return os.WriteFile(filename, x509.MarshalPKCS1PrivateKey(pkey), 0600)
 }
 
-// generateCertificate creates new certificate
+// generateCertificate creates a new certificate
 func generateCertificate(certFile, keyFile string) error {
 	var err error
 	cert, pkey, err = mitm.NewAuthority("Proxify CA", organization, time.Duration(24*365)*time.Hour)
@@ -77,38 +64,28 @@ func generateCertificate(certFile, keyFile string) error {
 }
 
 func readCertNKeyFromDisk(certFile, keyFile string) error {
-	block, err := readPemFromDisk(certFile)
+	certBin, err := os.ReadFile(certFile)
 	if err != nil {
 		return err
 	}
-	cert, err = x509.ParseCertificate(block.Bytes)
+	cert, err = x509.ParseCertificate(certBin)
 	if err != nil {
 		return err
 	}
 	if time.Now().After(cert.NotAfter) {
 		return fmt.Errorf("expired certificate found")
 	}
-	block, err = readPemFromDisk(keyFile)
-	if err != nil {
-		return err
-	}
-	pkey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
-func readPemFromDisk(filename string) (*pem.Block, error) {
-	Bin, err := os.ReadFile(filename)
+	keyBin, err := os.ReadFile(keyFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	block, _ := pem.Decode(Bin)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode pem block got nil")
+	pkey, err = x509.ParsePKCS1PrivateKey(keyBin)
+	if err != nil {
+		return err
 	}
-	return block, nil
+
+	return nil
 }
 
 func LoadCerts(dir string) error {
