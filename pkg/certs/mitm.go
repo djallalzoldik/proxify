@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
+	"errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/martian/v3/mitm"
 	fileutil "github.com/projectdiscovery/utils/file"
